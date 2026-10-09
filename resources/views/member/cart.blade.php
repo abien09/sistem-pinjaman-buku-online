@@ -51,7 +51,7 @@
                 
                 <form action="{{ route('member.checkout') }}" method="POST" class="text-end">
                     @csrf
-                    <p class="text-muted small mb-2">Total: <strong>{{ $carts->count() }} Buku</strong> (Maks. 5)</p>
+                    <p class="text-muted small mb-2">Total di Keranjang: <strong>{{ $carts->count() }} Buku</strong> (Batas maksimal total peminjaman: 7 buku)</p>
                     <button type="submit" class="btn btn-primary btn-lg fw-bold px-5 rounded-pill shadow-sm">
                         <i class="fas fa-qrcode me-2"></i> Buat QR Booking Sekarang
                     </button>

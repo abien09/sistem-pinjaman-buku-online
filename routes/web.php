@@ -29,6 +29,11 @@ Route::middleware('guest')->group(function () {
     
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'processLogin'])->name('login.process');
+
+    // Rute Baru Untuk OTP Verifikasi Email (Guest)
+    Route::get('/verify', [AuthController::class, 'showVerify'])->name('verify');
+    Route::post('/verify', [AuthController::class, 'verifyOtp'])->name('verify.check')->middleware('throttle:10,1');
+    Route::post('/verify/resend', [AuthController::class, 'resendOtp'])->name('verify.resend')->middleware('throttle:3,1');
 });
 
 // ==========================================
@@ -79,7 +84,7 @@ Route::middleware('auth')->group(function () {
     // 4. RUTE KHUSUS ADMIN (Manajemen & Transaksi)
     // ==========================================
     // Manajemen Buku
-    Route::resource('books', BookController::class);
+Route::resource('books', BookController::class);
 
     // Laporan & Status Toko
     Route::get('/admin/reports', [ReportController::class, 'index'])->name('admin.reports');

@@ -1,0 +1,10 @@
+warning: in the working copy of 'resources/views/auth/register.blade.php', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'resources/views/books/edit.blade.php', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'resources/views/layouts/app.blade.php', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'resources/views/member/book-detail.blade.php', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'resources/views/member/cart.blade.php', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'resources/views/member/catalog.blade.php', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'resources/views/member/history.blade.php', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'resources/views/transactions/return.blade.php', CRLF will be replaced by LF the next time Git touches it
+.gitignore
+README.md

@@ -43,13 +43,36 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Harga Buku (Rp)</label>
+                            <input type="number" name="price" class="form-control" value="{{ $book->price }}" required>
+                            <small class="text-muted">Tanpa titik (Contoh: 1500000)</small>
+                        </div>
+                    </div>
 
-                        <!-- Informasi Stok & Eksemplar Fisik Saat Ini -->
-                    <div class="mb-4">
+                    <!-- Input Checkbox Buku Langka -->
+                    <div class="mb-4 form-check bg-light p-3 rounded">
+                        <input
+                            type="checkbox"
+                            name="is_rare"
+                            value="1"
+                            class="form-check-input ms-1 me-2"
+                            id="isRare"
+                            {{ old('is_rare', $book->is_rare) ? 'checked' : '' }}
+                        >
+
+                        <label class="form-check-label text-danger fw-bold" for="isRare">
+                            Tandai sebagai Buku Langka/Premium
+                            (Hanya bisa dibaca di tempat)
+                        </label>
+                    </div>
+
+                    <!-- Informasi Stok & Eksemplar Fisik Saat Ini -->
+                    <div class="mb-4 border-top pt-3">
                         <label class="fw-bold mb-2">Daftar Eksemplar Fisik & QR Code (Eksisting)</label>
                         <ul class="list-group mb-3">
                             @forelse($book->copies as $copy)
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-1">
                                     <span class="font-monospace fw-bold text-primary">{{ $copy->copy_code }}</span>
                                     <span class="badge bg-{{ $copy->status == 'available' ? 'success' : 'secondary' }}">
                                         {{ ucfirst($copy->status) }}
@@ -62,17 +85,11 @@
 
                         <!-- Input Tambah Stok Baru -->
                         <label class="fw-bold text-success">Tambah Stok Buku Fisik Baru (Opsional)</label>
-                        <input type="number" name="additional_stock" class="form-control" placeholder="Masukkan jumlah buku fisik yang ingin ditambah..." min="0" value="0">
-                        <small class="text-muted">Sistem akan otomatis menghasilkan kode QR eksemplar baru berdasarkan jumlah yang Anda masukkan.</small>
+                        <input type="number" name="additional_stock" class="form-control" placeholder="Masukkan jumlah buku fisik tambahan..." min="0" value="0">
+                        <small class="text-muted">Sistem akan otomatis menghasilkan kode QR eksemplar baru.</small>
                     </div>
 
-                        <div class="col-md-6 mb-3">
-                            <label class="fw-bold form-label">Harga Buku (Untuk Acuan Denda)</label>
-                            <input type="number" name="price" class="form-control" value="{{ old('price', $book->price) }}" required>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
+                    <div class="mb-3 border-top pt-3">
                         <label class="fw-bold form-label">Ganti Cover Buku (Opsional)</label>
                         @if($book->cover_image)
                             <div class="mb-2">

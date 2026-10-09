@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login Perpustakaan</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style> body { background-color: #f8f9fa; } </style>
 </head>
 <body>
@@ -35,7 +36,12 @@
                         </div>
                         <div class="mb-4">
                             <label>Password</label>
-                            <input type="password" name="password" class="form-control" required>
+                            <div class="input-group">
+                                <input type="password" name="password" id="loginPassword" class="form-control" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleLoginPassword">
+                                    <i class="fas fa-eye" id="loginEyeIcon"></i>
+                                </button>
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">Masuk</button>
                     </form>
@@ -48,5 +54,19 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Script Toggle Show/Hide Password Login
+    const toggleLoginPassword = document.getElementById('toggleLoginPassword');
+    const loginPassword = document.getElementById('loginPassword');
+    const loginEyeIcon = document.getElementById('loginEyeIcon');
+
+    toggleLoginPassword.addEventListener('click', function () {
+        const type = loginPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+        loginPassword.setAttribute('type', type);
+        loginEyeIcon.classList.toggle('fa-eye');
+        loginEyeIcon.classList.toggle('fa-eye-slash');
+    });
+</script>
 </body>
 </html>

@@ -2,7 +2,6 @@
 
 @section('content')
 
-<!-- CEK STATUS TUTUP / HARI SENIN -->
 @php
     $isMondayNow = (date('N') == 1);
     $globalSetting = \App\Models\Setting::where('key', 'store_status')->first();
@@ -19,16 +18,13 @@
         </div>
     </div>
 @endif
-<!-- 1. HERO BANNER SECTION -->
+
 <div class="p-5 mb-4 rounded-4 shadow-sm text-white position-relative overflow-hidden" style="background: linear-gradient(135deg, #0d6efd 0%, #0099ff 100%);">
     <div class="row align-items-start position-relative z-1">
-        <!-- Kolom Kiri: Teks Sambutan -->
         <div class="col-lg-7 mb-4 mb-lg-0">
             <h1 class="display-5 fw-bold mb-3">Jelajahi Dunia Pengetahuan 🚀</h1>
             <p class="fs-6 mb-0 opacity-90" style="line-height: 1.6;">Selamat datang, {{ auth()->user()->name }}. Temukan buku favoritmu, pinjam dengan mudah menggunakan verifikasi QR Code, dan perluas wawasanmu hari ini.</p>
         </div>
-
-        <!-- Kolom Kanan: Kartu QR Code Vertikal (Barcode di atas, Teks di bawah) -->
         <div class="col-lg-5 text-center text-lg-end">
             <div class="bg-white text-dark p-3 rounded-4 shadow-sm d-inline-block text-center">
                 <div class="bg-light p-2 rounded-3 mb-2 d-inline-block">
@@ -43,7 +39,6 @@
     </div>
 </div>
 
-<!-- 2. KATEGORI BUKU (PILL BUTTONS) -->
 <div class="mb-4">
     <h5 class="fw-bold mb-3"><i class="fas fa-tags me-2 text-primary"></i> Kategori Pilihan</h5>
     <div class="d-flex flex-wrap gap-2">
@@ -56,7 +51,6 @@
     </div>
 </div>
 
-<!-- 3. KATALOG BUKU GRID -->
 <div class="mb-5">
     <h5 class="fw-bold mb-3"><i class="fas fa-book-open me-2 text-primary"></i> Daftar Katalog Buku</h5>
     
@@ -64,7 +58,6 @@
         @forelse($books as $book)
             <div class="col-md-3 mb-4">
                 <div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden">
-                    <!-- Cover Buku -->
                     <div class="bg-light text-center position-relative" style="height: 220px; overflow: hidden;">
                         @if($book->cover_image)
                             <img src="{{ asset('storage/' . $book->cover_image) }}" alt="{{ $book->title }}" class="w-100 h-100 object-fit-cover">
@@ -74,7 +67,6 @@
                             </div>
                         @endif
                         
-                        <!-- Badge Kategori di atas gambar -->
                         <span class="position-absolute top-0 start-0 m-2 badge bg-dark bg-opacity-75 backdrop-blur">
                             {{ $book->category->name }}
                         </span>
@@ -97,19 +89,19 @@
                                     </span>
                                 @else
                                     <span class="badge bg-danger bg-opacity-10 text-danger fw-bold px-2 py-1">
-                                        Habis Dipinjam
+                                        Habis
                                     </span>
                                 @endif
 
-                                <!-- TAMBAHKAN STYLE POSITION RELATIVE & Z-INDEX AGAR BISA DIKLIK -->
-                                <form action="{{ route('member.cart.add') }}" method="POST" class="position-relative" style="z-index: 2;">
-                                    @csrf
-                                    <input type="hidden" name="book_id" value="{{ $book->id }}">
-                                    <button type="button" class="btn btn-outline-primary btn-sm px-3" onclick="addToCart({{ $book->id }}, this)">
+                                @if($book->is_rare || $book->price > 1000000)
+                                    <button type="button" class="btn btn-secondary btn-sm px-3 position-relative" style="z-index: 2;" disabled title="Buku Premium/Langka">
+                                        <i class="fas fa-book-reader"></i>
+                                    </button>
+                                @else
+                                    <button type="button" class="btn btn-outline-primary btn-sm px-3 position-relative" style="z-index: 2;" onclick="addToCart({{ $book->id }}, this)" title="Tambah ke Keranjang">
                                         <i class="fas fa-cart-plus"></i>
                                     </button>
-                                </form>
-
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -124,40 +116,4 @@
         @endforelse
     </div>
 </div>
-
-<script>
-function addToCart(bookId, btn) {
-    // Ubah ikon jadi loading sementara
-    let originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    
-    fetch('{{ route("member.cart.add") }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({ book_id: bookId })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.success) {
-            // Ubah ikon jadi ceklis hijau sebentar, lalu kembali normal
-            btn.innerHTML = '<i class="fas fa-check text-success"></i>';
-            btn.classList.replace('btn-outline-primary', 'btn-outline-success');
-            setTimeout(() => { 
-                btn.innerHTML = originalHtml; 
-                btn.classList.replace('btn-outline-success', 'btn-outline-primary');
-            }, 1500);
-        } else {
-            alert(data.error);
-            btn.innerHTML = originalHtml;
-        }
-    }).catch(err => {
-        btn.innerHTML = originalHtml;
-    });
-}
-</script>
-
 @endsection

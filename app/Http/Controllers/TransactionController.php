@@ -64,6 +64,16 @@ class TransactionController extends Controller
             return back()->with('error', 'Member tidak ditemukan!');
         }
 
+        // Cek Batasan 7 Buku (Dipinjam + Dibooking)
+        $activeBorrowedCount = Transaction::where('user_id', $member->id)->where('status', 'borrowed')->count();
+        $activeBookedCount = BorrowTransactionDetail::whereHas('borrowTransaction', function($q) use ($member) {
+            $q->where('user_id', $member->id)->where('status', 'booked');
+        })->count();
+
+        if (($activeBorrowedCount + $activeBookedCount) >= 7) {
+            return back()->with('error', 'User ini sudah mencapai batasan peminjaman');
+        }
+
         // 2. Cari Eksemplar Buku
         $bookCopy = BookCopy::where('copy_code', $request->copy_code)->first();
         if (!$bookCopy) {
@@ -123,14 +133,22 @@ class TransactionController extends Controller
         
         $lateFee = 0;
         $weeksLate = 0;
+        $isMaxLateFee = false; 
+        
         if ($daysBorrowed > 30) {
             $weeksLate = ceil(($daysBorrowed - 30) / 7);
             $bookPrice = $transaction->bookCopy->book->price; 
-            $lateFee = ($bookPrice * 0.10) * $weeksLate;
+            
+            // Batasi persentase denda maksimal 1.0 (100%)
+            $penaltyPercentage = min($weeksLate * 0.10, 1.0);
+            $lateFee = $bookPrice * $penaltyPercentage;
+            
+            if ($penaltyPercentage == 1.0) {
+                $isMaxLateFee = true;
+            }
         }
-
-        // Kirim data kembali ke view bersama flag agar modal otomatis terbuka
-        return view('transactions.return', compact('transaction', 'daysBorrowed', 'lateFee'))->with('showModal', true);
+        
+        return view('transactions.return', compact('transaction', 'daysBorrowed', 'lateFee', 'isMaxLateFee'))->with('showModal', true);
     }
 
     // Step 2: Konfirmasi Final Pengembalian dari Modal
@@ -140,72 +158,94 @@ class TransactionController extends Controller
 
         $request->validate([
             'transaction_id' => 'required|exists:transactions,id',
-            'condition' => 'required|in:available,damaged,lost' // Memastikan kondisi fisik diinput
+            'condition' => 'required|in:available,damaged,lost' 
         ]);
 
-        $transaction = Transaction::with('bookCopy.book')->findOrFail($request->transaction_id);
+        $transaction = \App\Models\Transaction::with(['bookCopy.book', 'user'])->findOrFail($request->transaction_id);
+        $bookPrice = $transaction->bookCopy->book->price;
 
         $borrowDate = \Carbon\Carbon::parse($transaction->borrow_date);
         $returnDate = now();
         $daysBorrowed = $borrowDate->diffInDays($returnDate);
         
-        // Kalkulasi Denda Keterlambatan
+        // 1. Hitung Denda Keterlambatan (Late Fee)
         $lateFee = 0;
-        if ($daysBorrowed > 30) { // Sesuai aturan lama Anda
+        $isMaxLateFee = false;
+
+        if ($daysBorrowed > 30) {
             $weeksLate = ceil(($daysBorrowed - 30) / 7);
-            $bookPrice = $transaction->bookCopy->book->price; 
-            $lateFee = ($bookPrice * 0.10) * $weeksLate;
+            $penaltyPercentage = min($weeksLate * 0.10, 1.0);
+            $lateFee = $bookPrice * $penaltyPercentage;
+
+            if ($penaltyPercentage == 1.0) {
+                $isMaxLateFee = true;
+            }
         }
 
-        // Update Transaksi menjadi 'returned'
+        // 2. Hitung Denda Kondisi Fisik (Hanya Bagus = 0, Rusak/Hilang = 100%)
+        $conditionFee = 0;
+        if (in_array($request->condition, ['damaged', 'lost'])) {
+            $conditionFee = $bookPrice * 1.0; 
+        }
+
+        // Hitung Total Keseluruhan Denda
+        $totalDenda = $lateFee + $conditionFee;
+
+        // 3. Update Transaksi
         $transaction->update([
             'return_date' => $returnDate,
             'status' => 'returned',
-            'late_fee' => $lateFee
+            'late_fee' => $totalDenda,
+            'condition_fee' => $conditionFee
         ]);
 
-        // UBAH STATUS BUKU SESUAI HASIL PENGECEKAN ADMIN (Bagus / Rusak / Hilang)
-        $transaction->bookCopy->update(['status' => $request->condition]);
+        // 4. Update Status Buku Fisik
+        $copyStatus = in_array($request->condition, ['damaged', 'lost']) ? $request->condition : 'available';
+        $transaction->bookCopy->update(['status' => $copyStatus]);
 
+        // 5. Susun Pesan Flash & Peringatan Admin
         $message = 'Buku "' . $transaction->bookCopy->book->title . '" berhasil dikembalikan!';
-        if ($lateFee > 0) {
-            $message .= ' Terdapat denda keterlambatan: Rp ' . number_format($lateFee, 0, ',', '.');
-        }
         
-        if ($request->condition === 'damaged') {
-            $message .= ' (Catatan: Buku dalam kondisi Rusak).';
-        } elseif ($request->condition === 'lost') {
-            $message .= ' (Catatan: Buku dilaporkan Hilang).';
+        if ($totalDenda > 0) {
+            $message .= ' Total tagihan denda: Rp ' . number_format($totalDenda, 0, ',', '.');
+        }
+
+        if ($isMaxLateFee) {
+            $alertMsg = "PERINGATAN DENDA MAKSIMAL! Member telat lebih dari 10 minggu. Segera hubungi member ini! Email: {$transaction->user->email} | WA: {$transaction->user->phone} | Alamat: {$transaction->user->address}";
+            return redirect()->route('transactions.return')->with('error', $alertMsg);
         }
 
         return redirect()->route('transactions.return')->with('success', $message);
     }
 
-    // HALAMAN SCAN & PROSES PENCOCOKAN QR (SUDAH DIPERBAIKI DENGAN PRG PATTERN)
+   // HALAMAN SCAN & PROSES PENCOCOKAN QR
     public function verifyBorrowScan(Request $request)
     {
         $memberCode = strtoupper(trim($request->member_code));
         $code = strtoupper(trim($request->code)); 
 
-        // 1. Verifikasi Data Member Dulu (Aturan Dosen)
-        // Tambahkan ->withInput() agar ketikan member tidak hilang saat ada error barcode buku
         $member = User::where('member_code', $memberCode)->where('role', 'member')->first();
         if (!$member) return back()->with('error', 'Data Member ('.$memberCode.') tidak valid!')->withInput();
 
-        // 2. SKENARIO KERANJANG (BOOK-xxx)
+        // CEK BATASAN 7 BUKU SAAT SCAN (Aman dari error relasi)
+        $activeBorrowedCount = Transaction::where('user_id', $member->id)->where('status', 'borrowed')->count();
+        $cartCount = Cart::where('user_id', $member->id)->count();
+
+        if (($activeBorrowedCount + $cartCount) >= 7) {
+            return back()->with('error', 'User ini sudah mencapai batasan peminjaman')->withInput();
+        }
+
         if (str_starts_with($code, 'BOOK')) {
             $transaction = BorrowTransaction::where('booking_code', $code)->first();
 
             if (!$transaction) return back()->with('error', 'Kode Booking tidak ditemukan.')->withInput();
             
-            // CEK KEAMANAN: Apakah booking ini milik member yang scan KTP/Kartu-nya?
             if ($transaction->user_id !== $member->id) {
                 return back()->with('error', 'Peringatan Keamanan! Kode booking ini milik orang lain, bukan milik '.$member->name)->withInput();
             }
 
             if ($transaction->status !== 'booked') return back()->with('error', 'Booking ini sudah diproses.')->withInput();
 
-            // AMAN! Redirect dengan session (Menghindari 405 Method Not Allowed)
             return redirect()->route('transactions.create')->with([
                 'showModal' => true,
                 'type' => 'cart',
@@ -214,12 +254,10 @@ class TransactionController extends Controller
             ]);
         } 
         
-        // 3. SKENARIO SINGLE (BK-xxx)
         $copy = BookCopy::where('copy_code', $code)->first();
         if (!$copy) return back()->with('error', 'Kode Buku fisik tidak dikenali.')->withInput();
         if ($copy->status !== 'available') return back()->with('error', 'Buku sedang tidak tersedia.')->withInput();
 
-        // AMAN! Redirect dengan session
         return redirect()->route('transactions.create')->with([
             'showModal' => true,
             'type' => 'single',
@@ -228,16 +266,34 @@ class TransactionController extends Controller
         ]);
     }
 
-// Proses Persetujuan Admin (Single & Cart)
+    // Proses Persetujuan Admin (Single & Cart)
     public function processBorrow(Request $request)
     {
-        if ($request->type === 'cart') {$borrowTransaction = BorrowTransaction::with('details.bookCopy')->findOrFail($request->transaction_id);$borrowTransaction->update([
+        // Tentukan ID member berdasarkan tipe transaksi
+        $memberId = $request->type === 'cart' 
+            ? BorrowTransaction::findOrFail($request->transaction_id)->user_id 
+            : $request->member_id;
+
+        // CEK BATASAN 7 BUKU SAAT KLIK VALIDASI OLEH ADMIN
+        $activeBorrowedCount = Transaction::where('user_id', $memberId)->where('status', 'borrowed')->count();
+        $activeBookedCount = BorrowTransactionDetail::whereHas('borrowTransaction', function($q) use ($memberId) {
+            $q->where('user_id', $memberId)->where('status', 'booked');
+        })->count();
+
+        if (($activeBorrowedCount + $activeBookedCount) >= 7) {
+            return redirect()->route('transactions.create')->with('error', 'User ini sudah mencapai batasan peminjaman');
+        }
+
+        if ($request->type === 'cart') {
+            $borrowTransaction = BorrowTransaction::with('details.bookCopy')->findOrFail($request->transaction_id);
+            $borrowTransaction->update([
                 'status' => 'borrowed', 
                 'borrow_date' => now()
             ]);
 
-            foreach ($borrowTransaction->details as$detail) {
-                if ($detail->bookCopy) {$detail->bookCopy->update(['status' => 'borrowed']);
+            foreach ($borrowTransaction->details as $detail) {
+                if ($detail->bookCopy) {
+                    $detail->bookCopy->update(['status' => 'borrowed']);
                 }
                 
                 $detail->update([
@@ -245,7 +301,6 @@ class TransactionController extends Controller
                     'due_date' => now()->addDays(7)
                 ]);
 
-                // Masukkan ke tabel `transactions` utama agar muncul di riwayat member
                 Transaction::create([
                     'user_id' => $borrowTransaction->user_id,
                     'book_copy_id' => $detail->book_copy_id,

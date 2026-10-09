@@ -73,11 +73,18 @@
                             <span class="text-muted small">Total Durasi Pinjam:</span>
                             <strong class="small text-primary">{{ $daysBorrowed }} Hari</strong>
                         </div>
-
                         @if($daysBorrowed > 30)
-                            <div class="alert alert-danger mt-3 mb-0 p-2 small">
-                                <i class="fas fa-exclamation-triangle me-1"></i> <strong>Terlambat!</strong> Melebihi batas 30 hari (Lebih {{ $daysBorrowed - 30 }} hari).<br>
-                                Estimasi Denda: <strong class="text-danger fs-6">Rp {{ number_format($lateFee, 0, ',', '.') }}</strong>
+                            <div class="alert alert-danger mt-3 mb-0 p-2 small border-danger border-start border-4">
+                                <i class="fas fa-exclamation-triangle me-1"></i> <strong>Terlambat!</strong> (Lebih {{ $daysBorrowed - 30 }} hari).<br>
+                                
+                                @if(isset($isMaxLateFee) && $isMaxLateFee)
+                                    <div class="mt-2 mb-1 p-2 bg-danger text-white rounded fw-bold">
+                                        <i class="fas fa-ban me-1"></i> Denda mencapai batas maksimal (100% Harga Buku)!
+                                    </div>
+                                    <span class="text-dark d-block">Admin harap tegur member secara lisan atau hubungi kontak terdaftar.</span>
+                                @endif
+                                
+                                <span class="d-block mt-2">Estimasi Denda: <strong class="text-danger fs-5">Rp {{ number_format($lateFee, 0, ',', '.') }}</strong></span>
                             </div>
                         @else
                             <div class="alert alert-success mt-3 mb-0 p-2 small">
@@ -85,15 +92,35 @@
                             </div>
                         @endif
                     </div>
+
                     <!-- Pengecekan Kondisi Fisik oleh Admin -->
                     <div class="mb-3 text-start">
                         <label class="fw-bold mb-2">Kondisi Fisik Buku Saat Diterima:</label>
-                        <select name="condition" class="form-select border-primary" required>
+                        <select name="condition" id="conditionSelect" class="form-select border-primary" required>
                             <option value="available" selected>✅ Bagus / Layak Dipinjamkan Lagi</option>
-                            <option value="damaged">⚠️ Rusak / Cacat</option>
+                            <option value="damaged">⚠️ Lecek / Rusak / Cacat (Denda 100% dari Harga Buku)</option>
                             <option value="lost">❌ Hilang / Tidak Dikembalikan Penuh</option>
                         </select>
-                        <small class="text-muted">Pilih "Rusak" atau "Hilang" agar buku tidak bisa dipinjam oleh member lain.</small>
+                        <small class="text-muted d-block mt-1">Pilih "Rusak" atau "Hilang" agar buku tidak bisa dipinjam oleh member lain.</small>
+
+                        <!-- Notifikasi Dinamis Kondisi Rusak (Sembunyi by Default) -->
+                        <div id="damagedWarning" class="alert alert-warning mt-2 mb-0 p-2 small d-none border-warning border-start border-4 shadow-sm">
+                            <i class="fas fa-exclamation-circle me-1"></i> <strong>Denda Kerusakan Fisik:</strong><br> 
+                            Member akan dikenakan denda tambahan sebesar <strong>100% dari harga buku</strong> (Rp {{ number_format($transaction->bookCopy->book->price ?? 0, 0, ',', '.') }}).
+                        </div>
+
+                        <!-- Notifikasi Dinamis Kondisi Hilang (Sembunyi by Default) -->
+                        <div id="lostInfo" class="alert alert-danger mt-2 mb-0 p-2 small d-none border-danger border-start border-4 shadow-sm">
+                            <i class="fas fa-user-slash me-1"></i> <strong>Buku Dinyatakan Hilang!</strong><br> 
+                            Tagihan Denda 100% (Rp {{ number_format($transaction->bookCopy->book->price ?? 0, 0, ',', '.') }}).
+                            <hr class="my-1 border-danger opacity-25">
+                            <div class="bg-white p-2 rounded text-dark">
+                                <strong><i class="fas fa-address-card text-secondary me-1"></i> Hubungi Member:</strong><br>
+                                👤 Nama: {{ $transaction->user->name }}<br>
+                                📞 Telp/WA: {{ $transaction->user->phone ?? 'Tidak ada data telp' }}<br>
+                                🏠 Alamat: {{ $transaction->user->address ?? 'Tidak ada data alamat' }}
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer bg-light px-4 py-3">
@@ -124,8 +151,7 @@
                 });
             }
 
-            // 3. Beritahu admin dengan suara/alert singkat, lalu biarkan Admin klik tombol "Verifikasi Pengembalian" 
-            // ATAU kita beri jeda setengah detik agar token aman sebelum dikirim secara aman
+            // 3. Beritahu admin dengan suara/alert singkat
             alert("QR Code terbaca: " + decodedText + "\nKlik OK untuk melanjutkan verifikasi.");
             document.getElementById('returnForm').submit();
         }
@@ -134,5 +160,29 @@
     // Inisialisasi Scanner
     html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
     html5QrcodeScanner.render(onScanSuccess);
+
+    // ==========================================
+    // JS UNTUK MENAMPILKAN PERINGATAN KONDISI BUKU
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const conditionSelect = document.getElementById('conditionSelect');
+        const damagedWarning = document.getElementById('damagedWarning');
+        const lostInfo = document.getElementById('lostInfo');
+
+        if (conditionSelect) {
+            conditionSelect.addEventListener('change', function() {
+                // Sembunyikan notifikasi setiap ada perubahan opsi
+                damagedWarning.classList.add('d-none');
+                lostInfo.classList.add('d-none');
+
+                // Tampilkan notifikasi yang sesuai
+                if (this.value === 'damaged') {
+                    damagedWarning.classList.remove('d-none');
+                } else if (this.value === 'lost') {
+                    lostInfo.classList.remove('d-none');
+                }
+            });
+        }
+    });
 </script>
 @endpush

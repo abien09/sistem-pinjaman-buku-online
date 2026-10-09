@@ -94,37 +94,80 @@ public function store(Request $request)
     }
 
     // Proses memperbarui data buku dan menambah/mengatur stok eksemplar
-    public function update(Request $request, $id)
+  public function update(Request $request, $id)
     {
-        if (auth()->user()->role !== 'admin') abort(403);
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
 
-        $book = \App\Models\Book::findOrFail($id);
+        $book = Book::findOrFail($id);
 
         $request->validate([
             'title' => 'required|string|max:255',
             'author' => 'required|string|max:255',
+            'publisher' => 'nullable|string|max:255',
             'category_id' => 'required|exists:categories,id',
-            'additional_stock' => 'nullable|integer|min:1', // Input untuk menambah stok baru
+            'description' => 'nullable|string',
+            'price' => 'required|numeric|min:0',
+            'additional_stock' => 'nullable|integer|min:0',
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        // 1. Update Informasi Dasar Buku
+        // Checkbox
+        $isRare = $request->boolean('is_rare');
+
+        // Simpan cover baru kalau ada
+        $coverPath = $book->cover_image;
+
+        if ($request->hasFile('cover_image')) {
+            $coverPath = $request->file('cover_image')
+                ->store('book_covers', 'public');
+        }
+
+        // Update data buku
         $book->update([
             'title' => $request->title,
             'author' => $request->author,
+            'publisher' => $request->publisher,
             'category_id' => $request->category_id,
+            'description' => $request->description,
+            'price' => $request->price,
+            'cover_image' => $coverPath,
+            'is_rare' => $isRare,
         ]);
 
-        // 2. Jika Admin menambahkan stok baru, generate eksemplar & QR Code baru
-        if ($request->filled('additional_stock') && $request->additional_stock > 0) {
-            for ($i = 0; $i < $request->additional_stock; $i++) {
-                \App\Models\BookCopy::create([
-                    'book_id' => $book->id,
-                    'copy_code' => 'BK-' . $book->id . '-' . strtoupper(\Illuminate\Support\Str::random(6)),
-                    'status' => 'available'
-                ]);
+        // Tentukan apakah buku hanya bisa dibaca di tempat
+        $isReadOnly = $isRare || $request->price > 1000000;
+
+        if ($isReadOnly) {
+
+            // Hapus semua eksemplar yang masih tersedia.
+            // Copy yang sedang dipinjam jangan dihapus agar
+            // relasi transaksi peminjaman tidak rusak.
+            BookCopy::where('book_id', $book->id)
+                ->where('status', 'available')
+                ->delete();
+
+        } else {
+
+            // Buku normal -> boleh menambah stok
+            $additionalStock = (int) $request->input('additional_stock', 0);
+
+            if ($additionalStock > 0) {
+
+                for ($i = 0; $i < $additionalStock; $i++) {
+
+                    BookCopy::create([
+                        'book_id' => $book->id,
+                        'copy_code' => 'BK-' . $book->id . '-' . strtoupper(Str::random(6)),
+                        'status' => 'available'
+                    ]);
+                }
             }
         }
 
-        return redirect()->route('books.index')->with('success', 'Data buku dan stok eksemplar berhasil diperbarui!');
+        return redirect()
+            ->route('books.index')
+            ->with('success', 'Data buku berhasil diperbarui.');
     }
 }

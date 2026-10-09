@@ -8,10 +8,26 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Book extends Model
 {
     use HasFactory;
-    protected $guarded = ['id'];
-    
-    // ATURAN BISNIS: Sembunyikan harga dari member
-    protected $hidden = ['price']; 
+
+    protected $fillable = [
+        'title',
+        'author',
+        'publisher',
+        'category_id',
+        'description',
+        'cover_image',
+        'price',
+        'is_rare'
+    ];
+
+    protected $hidden = [
+        'price'
+    ];
+
+    protected $casts = [
+        'price' => 'decimal:2',
+        'is_rare' => 'boolean',
+    ];
 
     public function category()
     {
@@ -23,9 +39,16 @@ class Book extends Model
         return $this->hasMany(BookCopy::class);
     }
 
-    // Helper untuk menghitung eksemplar yang tersedia
     public function getAvailableCopiesCountAttribute()
     {
-        return $this->copies()->where('status', 'available')->count();
+        return $this->copies()
+            ->where('status', 'available')
+            ->count();
+    }
+
+    // Buku rare atau harga > 1 juta = hanya baca di tempat
+    public function isReadOnly(): bool
+    {
+        return $this->is_rare || $this->price > 1000000;
     }
 }

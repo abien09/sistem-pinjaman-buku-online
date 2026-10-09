@@ -1,0 +1,9 @@
+// Ambil user
+$user = App\Models\User::where('name', 'steven khusnul')->first();
+
+// Ubah status peminjaman yang aktif menjadi sudah dikembalikan
+App\Models\Borrowing::where('user_id', $user->id)
+    ->whereIn('status', ['borrowed', 'Sedang Dipinjam'])
+    ->update([
+        'return_date' => now(),
+    ]);

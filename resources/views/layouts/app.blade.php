@@ -4,14 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistem Perpustakaan</title>
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.12/dist/sweetalert2.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; }
         #sidebar { min-width: 260px; max-width: 260px; transition: all 0.3s; }
-        /* Kelas untuk menyembunyikan sidebar di layar besar */
         #sidebar.active { margin-left: -260px; }
         @media (max-width: 768px) {
             #sidebar { margin-left: -260px; position: fixed; height: 100vh; z-index: 1050; background: white; }
@@ -22,12 +20,10 @@
 <body>
 
 <div class="d-flex" id="wrapper">
-    <!-- SIDEBAR -->
     @auth
     <nav id="sidebar" class="bg-white border-end min-vh-100 p-3 shadow-sm" style="position: sticky; top: 0; height: 100vh; overflow-y: auto;">
         <div class="sidebar-header pb-3 mb-3 border-bottom d-flex justify-content-between align-items-center">
             <h5 class="fw-bold text-primary mb-0"><i class="fas fa-book-reader me-2"></i>PerpusDigital</h5>
-            <!-- Tombol Close khusus tampilan mobile -->
             <button type="button" id="sidebarCloseBtn" class="btn-close d-md-none" aria-label="Close"></button>
         </div>
 
@@ -36,21 +32,18 @@
                 <i class="fas fa-home me-2"></i> Dashboard / Katalog
             </a>
 
-            <!-- MENU KHUSUS MEMBER -->
             @if(auth()->user()->role === 'member')
                 <a href="{{ route('member.history') }}" class="list-group-item list-group-item-action border-0 rounded mb-1 {{ request()->routeIs('member.history') ? 'active bg-primary text-white' : '' }}">
                     <i class="fas fa-history me-2"></i> Riwayat Peminjaman
                 </a>
                 <a href="{{ route('member.cart') }}" class="list-group-item list-group-item-action border-0 rounded mb-1 {{ request()->routeIs('member.cart') ? 'active bg-primary text-white' : '' }}">
-                    <i class="fas fa-shopping-cart"></i> Keranjang 
-                    <!-- (Opsional) Berikan badge jumlah item -->
-                    <span class="badge bg-danger rounded-pill">
+                    <i class="fas fa-shopping-cart me-1"></i> Keranjang 
+                    <span id="cart-badge" class="badge bg-danger rounded-pill float-end mt-1">
                         {{ \App\Models\Cart::where('user_id', auth()->id())->count() }}
                     </span>
                 </a>
             @endif
 
-            <!-- MENU KHUSUS ADMIN -->
             @if(auth()->user()->role === 'admin')
                 <div class="text-uppercase text-muted small fw-bold px-3 mt-3 mb-2">Manajemen</div>
                 <a href="{{ route('books.index') }}" class="list-group-item list-group-item-action border-0 rounded mb-1 {{ request()->routeIs('books.*') ? 'active bg-primary text-white' : '' }}">
@@ -68,15 +61,13 @@
                     <i class="fas fa-undo me-2"></i> Scan Pengembalian
                 </a>
 
-                <!-- TAMBAHKAN MENU LAPORAN INI -->
                 <div class="text-uppercase text-muted small fw-bold px-3 mt-3 mb-2">Analitik</div>
                 <a href="{{ route('admin.reports') }}" class="list-group-item list-group-item-action border-0 rounded mb-1 {{ request()->routeIs('admin.reports') ? 'active bg-primary text-white' : '' }}">
                     <i class="fas fa-chart-bar me-2"></i> Laporan & Statistik
                 </a>
             @endif
 
-            <!-- TAMBAHKAN MENU PROFIL DI SINI -->
-            <a href="{{ route('profile.edit') }}" class="list-group-item list-group-item-action border-0 rounded mb-1 {{ request()->routeIs('profile.*') ? 'active bg-primary text-white' : '' }}">
+            <a href="{{ route('profile.edit') }}" class="list-group-item list-group-item-action border-0 rounded mb-1 mt-3 {{ request()->routeIs('profile.*') ? 'active bg-primary text-white' : '' }}">
                 <i class="fas fa-user-cog me-2"></i> Pengaturan Profil
             </a>
 
@@ -91,9 +82,7 @@
     </nav>
     @endauth
 
-    <!-- PAGE CONTENT -->
     <div id="content" class="w-100">
-        <!-- TOPBAR DENGAN TOMBOL HAMBURGER -->
         <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom px-4 py-3 shadow-sm">
             <div class="container-fluid px-0">
                 @auth
@@ -112,29 +101,15 @@
             </div>
         </nav>
 
-        <!-- MAIN CONTENT CONTAINER -->
         <div class="container-fluid p-4">
-            @if(session('success'))
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    {{ session('success') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            @endif
-
-            @if(session('error'))
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    {{ session('error') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            @endif
-
             @yield('content')
         </div>
     </div>
 </div>
 
-<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.12/dist/sweetalert2.all.min.js"></script>
+
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const sidebar = document.getElementById('sidebar');
@@ -152,6 +127,80 @@
             });
         }
     });
+
+    // FUNGSI GLOBAL ADD TO CART DENGAN SWEETALERT & UPDATE BADGE
+    function addToCart(bookId, btn) {
+        let originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+        
+        fetch('{{ route("member.cart.add") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ book_id: bookId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                // 1. Ganti Ikon Tombol Sesat
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                btn.classList.replace('btn-outline-primary', 'btn-success');
+                btn.classList.replace('btn-primary', 'btn-success');
+
+                // 2. Update Angka Merah di Sidebar Real-Time
+                let badge = document.getElementById('cart-badge');
+                if (badge) {
+                    let currentCount = parseInt(badge.innerText) || 0;
+                    badge.innerText = currentCount + 1;
+                }
+
+                // 3. Tampilkan Pop-up SweetAlert Cantik
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: 'Buku telah dimasukkan ke dalam keranjang.',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    backdrop: `rgba(0,0,0,0.4)`
+                });
+
+                // 4. Kembalikan tombol ke bentuk semula setelah 1.5 detik
+                setTimeout(() => { 
+                    btn.innerHTML = originalHtml; 
+                    btn.classList.remove('btn-success');
+                    if(btn.classList.contains('w-100')) {
+                        btn.classList.add('btn-primary'); // Untuk tombol di halaman detail
+                    } else {
+                        btn.classList.add('btn-outline-primary'); // Untuk tombol di katalog
+                    }
+                    btn.disabled = false;
+                }, 1500);
+            } else {
+                // Jika error (Email belum verified / Buku Rare / Penuh)
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Tidak Dapat Menambahkan',
+                    text: data.error,
+                    confirmButtonColor: '#0d6efd'
+                });
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }).catch(err => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: 'Terjadi kesalahan sistem atau koneksi terputus.',
+                confirmButtonColor: '#0d6efd'
+            });
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        });
+    }
 </script>
 @stack('scripts')
 </body>

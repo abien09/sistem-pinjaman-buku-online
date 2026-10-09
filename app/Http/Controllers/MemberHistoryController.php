@@ -8,19 +8,21 @@ use Illuminate\Support\Facades\Auth;
 
 class MemberHistoryController extends Controller
 {
-    public function index()
-    {
-        // 1. Ambil history peminjaman single (yang lama)
-        $histories = Transaction::with('bookCopy.book')
-                        ->where('user_id', Auth::id())
-                        ->orderBy('created_at', 'desc')
-                        ->paginate(10);
+public function index()
+{
+    $userId = auth()->id();
+    
+    // Urutkan status 'borrowed' agar selalu di atas, lalu berdasarkan tanggal terbaru
+    $histories = Transaction::with(['bookCopy.book'])
+        ->where('user_id', $userId)
+        ->orderByRaw("CASE WHEN status = 'borrowed' THEN 1 ELSE 2 END")
+        ->orderBy('created_at', 'desc')
+        ->paginate(10);
 
-        // 2. Ambil data Booking Keranjang yang masih aktif
-        $activeBookings = BorrowTransaction::where('user_id', Auth::id())
-                        ->where('status', 'booked')
-                        ->get();
+    $activeBookings = BorrowTransaction::where('user_id', $userId)
+        ->where('status', 'booked')
+        ->get();
 
-        return view('member.history', compact('histories', 'activeBookings'));
-    }
+    return view('member.history', compact('histories', 'activeBookings'));
+}
 }

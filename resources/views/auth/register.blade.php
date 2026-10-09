@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrasi Member Perpustakaan</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #f8f9fa; }
         .webcam-container { position: relative; width: 300px; height: 225px; margin: 0 auto; border: 2px solid #ccc; border-radius: 10px; overflow: hidden; background-color: #000; }
@@ -32,7 +33,7 @@
                             </ul>
                         </div>
                     @endif
-                    <!-- PERHATIKAN: enctype="multipart/form-data" wajib ada karena kita upload file KTP -->
+                    
                     <form action="{{ route('register.process') }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         
@@ -45,10 +46,16 @@
                                     <input type="text" name="name" class="form-control" required>
                                 </div>
                                 <div class="mb-3">
-                                    <label>Email & Password (Untuk Login)</label>
+                                    <label>Email</label>
+                                    <input type="email" name="email" class="form-control" placeholder="Email" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label>Password</label>
                                     <div class="input-group">
-                                        <input type="email" name="email" class="form-control" placeholder="Email" required>
-                                        <input type="password" name="password" class="form-control" placeholder="Password" required>
+                                        <input type="password" name="password" id="registerPassword" class="form-control" placeholder="Password" required>
+                                        <button class="btn btn-outline-secondary" type="button" id="toggleRegisterPassword">
+                                            <i class="fas fa-eye" id="registerEyeIcon"></i>
+                                        </button>
                                     </div>
                                 </div>
                                 <div class="row">
@@ -88,7 +95,6 @@
                                     Memuat AI Kamera...
                                 </button>
                                 
-                                <!-- Input tersembunyi untuk dikirim ke Controller -->
                                 <input type="hidden" name="face_descriptor" id="face_descriptor" required>
                                 <input type="hidden" name="face_image_base64" id="face_image_base64" required>
                                 
@@ -105,16 +111,27 @@
     </div>
 </div>
 
-<!-- Script Face API -->
+<!-- Script Face API & Toggle Password -->
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 <script>
+    // Script Toggle Show/Hide Password Register
+    const toggleRegisterPassword = document.getElementById('toggleRegisterPassword');
+    const registerPassword = document.getElementById('registerPassword');
+    const registerEyeIcon = document.getElementById('registerEyeIcon');
+
+    toggleRegisterPassword.addEventListener('click', function () {
+        const type = registerPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+        registerPassword.setAttribute('type', type);
+        registerEyeIcon.classList.toggle('fa-eye');
+        registerEyeIcon.classList.toggle('fa-eye-slash');
+    });
+
     const video = document.getElementById('video');
     const captureBtn = document.getElementById('captureBtn');
     const submitBtn = document.getElementById('submitBtn');
     const container = document.getElementById('webcam-container');
     let currentDescriptor = null;
 
-    // 1. Load File AI Models dari folder public/models/
     Promise.all([
         faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
         faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
@@ -124,7 +141,6 @@
         console.error(err);
     });
 
-    // 2. Menyalakan Webcam
     function startVideo() {
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => { 
@@ -137,7 +153,6 @@
             });
     }
 
-    // 3. Deteksi Wajah Real-time (Kotak Hijau)
     video.addEventListener('play', () => {
         const canvas = faceapi.createCanvasFromMedia(video);
         container.append(canvas);
@@ -152,10 +167,8 @@
                 const resizedDetections = faceapi.resizeResults(detections, displaySize);
                 faceapi.draw.drawDetections(canvas, resizedDetections);
                 
-                // Simpan metrik biometrik ke memori
                 currentDescriptor = detections.descriptor;
                 
-                // Aktifkan tombol Ambil Wajah
                 captureBtn.disabled = false;
                 captureBtn.classList.replace('btn-warning', 'btn-primary');
                 captureBtn.innerText = "Scan Wajah Sekarang";
@@ -164,28 +177,24 @@
                 captureBtn.innerText = "Wajah tidak terdeteksi";
                 captureBtn.classList.replace('btn-primary', 'btn-warning');
             }
-        }, 300); // scan setiap 300ms
+        }, 300);
     });
 
-    // 4. Tombol Scan Ditekan
     captureBtn.addEventListener('click', () => {
         if (currentDescriptor) {
-            // A. Simpan biometrik ke input hidden sebagai JSON array
             document.getElementById('face_descriptor').value = JSON.stringify(Array.from(currentDescriptor));
             
-            // B. Simpan screenshot wajah saat itu juga
             const canvasSnap = document.createElement('canvas');
             canvasSnap.width = video.videoWidth;
             canvasSnap.height = video.videoHeight;
             canvasSnap.getContext('2d').drawImage(video, 0, 0);
             document.getElementById('face_image_base64').value = canvasSnap.toDataURL('image/jpeg');
 
-            // C. Ubah status UI
             alert('Wajah berhasil divalidasi!');
-            submitBtn.disabled = false; // Tombol Submit aktif!
+            submitBtn.disabled = false;
             captureBtn.innerText = "Wajah Terverifikasi ✅";
             captureBtn.classList.replace('btn-primary', 'btn-success');
-            captureBtn.disabled = true; // Kunci tombol kamera agar tidak berulang
+            captureBtn.disabled = true;
         }
     });
 </script>
