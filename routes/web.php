@@ -77,6 +77,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/member/cart', [CartController::class, 'index'])->name('member.cart');
         Route::post('/member/cart/add', [CartController::class, 'store'])->name('member.cart.add');
         Route::post('/member/checkout', [CartController::class, 'checkout'])->name('member.checkout');
+        Route::delete('/cart/{id}', [App\Http\Controllers\CartController::class, 'destroy'])->name('member.cart.destroy');
     });
 
 

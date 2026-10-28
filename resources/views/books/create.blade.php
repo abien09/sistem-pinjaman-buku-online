@@ -3,7 +3,12 @@
 @section('content')
 <div class="card shadow-sm border-0">
     <div class="card-header bg-white">
-        <h5 class="mb-0 fw-bold">Tambah Buku Baru</h5>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="fw-bold m-0"><i class="fas text-primary me-2"></i> Tambah Buku Baru</h3>
+                <a href="{{ route('books.index') }}" class="btn btn-outline-secondary rounded-pill px-4">
+                    <i class="fas fa-arrow-left me-1"></i> Kembali
+                </a>
+            </div>
     </div>
     <div class="card-body">
         <form action="{{ route('books.store') }}" method="POST" enctype="multipart/form-data">

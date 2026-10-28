@@ -34,7 +34,7 @@
                         <!-- 1. Input Member -->
                         <div class="mb-4">
                             <label class="fw-bold text-dark"><span class="badge bg-secondary me-1">1</span> ID Member (MBR-xxx)</label>
-                            <input type="text" name="member_code" id="member_code" value="{{ old('member_code') }}" class="form-control form-control-lg border-primary" placeholder="Menunggu scan member..." readonly required>
+                            <input type="text" name="member_code" id="member_code" value="{{ old('member_code') }}" class="form-control form-control-lg border-primary" placeholder="Menunggu scan member..." required>
                         </div>
                         
                         <!-- 2. Input Buku/Booking -->

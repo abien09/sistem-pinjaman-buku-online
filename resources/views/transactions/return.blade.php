@@ -2,30 +2,41 @@
 
 @section('content')
 <div class="row justify-content-center">
-    <div class="col-md-8">
+    <div class="col-md-9">
         <h3 class="fw-bold mb-4">Scan Pengembalian Buku</h3>
 
-        <div class="card shadow-sm border-0 rounded-4">
+        @if(session('error')) 
+            <div class="alert alert-danger shadow-sm">{{ session('error') }}</div> 
+        @endif
+        
+        @if(session('success')) 
+            <div class="alert alert-success shadow-sm">{{ session('success') }}</div> 
+        @endif
+
+        <div class="card shadow-sm border-0 rounded-4 mb-4">
             <div class="card-body p-4 row">
                 <!-- Area Kamera -->
-                <div class="col-md-6 text-center border-end">
-                    <h5 class="fw-bold mb-3"><i class="fas fa-camera text-primary"></i> Scanner Aktif</h5>
-                    <div id="reader" style="width: 100%;" class="bg-dark rounded overflow-hidden shadow-sm"></div>
-                    <p class="small text-muted mt-2">Arahkan stiker QR Code Buku ke kamera.</p>
+                <div class="col-md-5 text-center border-end">
+                    <h5 class="fw-bold mb-3 text-primary"><i class="fas fa-camera"></i> Arahkan QR Code</h5>
+                    <div id="reader" class="bg-dark rounded shadow-sm" style="width: 100%;"></div>
+                    <p class="text-muted small mt-2">Scan QR Buku Satuan atau QR Pengembalian Sekaligus milik member.</p>
                 </div>
 
                 <!-- Area Form Input -->
-                <div class="col-md-6 d-flex flex-column justify-content-center">
-                    <form id="returnForm" action="{{ route('transactions.verify_return') }}" method="POST">
+                <div class="col-md-7 d-flex flex-column justify-content-center">
+                    <form action="{{ route('transactions.verify_return') }}" method="POST" id="returnForm">
                         @csrf
-                        <div class="mb-4">
-                            <label class="fw-bold">Kode Eksemplar Buku (QR/Manual)</label>
-                            <input type="text" name="copy_code" id="copy_code" class="form-control form-control-lg bg-light" placeholder="Scan QR Buku..." required>
+                        
+                        <div class="alert alert-info py-2 small mb-4">
+                            <strong>Info:</strong> Admin dapat memindai QR buku satu per satu atau QR massal (pengembalian sekaligus dari member).
                         </div>
-                        <!-- Tombol Submit Manual yang Aman dari Lempar Session -->
-                        <button type="submit" id="submitBtn" class="btn btn-success btn-lg w-100 shadow-sm">
-                            <i class="fas fa-search me-1"></i> Verifikasi Pengembalian
-                        </button>
+
+                        <div class="mb-4">
+                            <label class="fw-bold text-dark">Kode Eksemplar Buku / QR Pengembalian</label>
+                            <input type="text" name="copy_code" id="copy_code" class="form-control form-control-lg border-success" placeholder="Scan QR atau masukkan kode..." required>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100 fw-bold btn-lg">Verifikasi Pengembalian</button>
                     </form>
                 </div>
             </div>
@@ -33,99 +44,113 @@
     </div>
 </div>
 
-<!-- MODAL POPUP VERIFIKASI PENGEMBALIAN -->
+<!-- MODAL VERIFIKASI PENGEMBALIAN (SATUAN ATAU SEKALIGUS) -->
 @if(isset($showModal) && $showModal)
-<div class="modal fade show" id="returnModal" tabindex="-1" style="display: block; background: rgba(0,0,0,0.5);" aria-modal="true" role="dialog">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+<div class="modal fade show" tabindex="-1" style="display: block; background: rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header bg-dark text-white">
                 <h5 class="modal-title fw-bold"><i class="fas fa-check-circle text-success me-2"></i> Konfirmasi Pengembalian Buku</h5>
                 <a href="{{ route('transactions.return') }}" class="btn-close btn-close-white"></a>
             </div>
+            
             <form action="{{ route('transactions.process_return') }}" method="POST">
                 @csrf
-                <input type="hidden" name="transaction_id" value="{{ $transaction->id }}">
-                <div class="modal-body p-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="me-3" style="width: 70px; height: 90px; flex-shrink: 0;">
-                            @if($transaction->bookCopy->book->cover_image)
-                                <img src="{{ asset('storage/' . $transaction->bookCopy->book->cover_image) }}" alt="Cover" class="w-100 h-100 object-fit-cover rounded shadow-sm">
-                            @else
-                                <div class="bg-secondary text-white w-100 h-100 d-flex align-items-center justify-content-center rounded small">No Cover</div>
-                            @endif
+                
+                <div class="modal-body p-4" style="max-height: 70vh; overflow-y: auto;">
+                    
+                    {{-- JIKA PENGEMBALIAN SEKALIGUS (BULK) --}}
+                    @if(isset($returnItems) && $returnItems->count() > 0)
+                        <div class="alert alert-info py-2 mb-3">
+                            Peminjam: <strong>{{ $member->name }}</strong> ({{ $member->member_code }})<br>
+                            <small>{{ $returnItems->count() }} buku aktif akan diproses sekaligus.</small>
                         </div>
-                        <div>
-                            <span class="badge bg-secondary mb-1 font-monospace">{{ $transaction->bookCopy->copy_code }}</span>
-                            <h5 class="fw-bold text-dark mb-1">{{ $transaction->bookCopy->book->title }}</h5>
-                            <p class="text-muted small mb-0"><i class="fas fa-user me-1"></i> Peminjam: <strong class="text-dark">{{ $transaction->user->name }}</strong></p>
-                        </div>
-                    </div>
 
-                    <hr>
+                        <input type="hidden" name="is_bulk" value="1">
 
-                    <!-- Rincian Waktu & Denda -->
-                    <div class="bg-light p-3 rounded-3 mb-3">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted small">Tanggal Peminjaman:</span>
-                            <strong class="small">{{ \Carbon\Carbon::parse($transaction->borrow_date)->format('d M Y') }}</strong>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted small">Total Durasi Pinjam:</span>
-                            <strong class="small text-primary">{{ $daysBorrowed }} Hari</strong>
-                        </div>
-                        @if($daysBorrowed > 30)
-                            <div class="alert alert-danger mt-3 mb-0 p-2 small border-danger border-start border-4">
-                                <i class="fas fa-exclamation-triangle me-1"></i> <strong>Terlambat!</strong> (Lebih {{ $daysBorrowed - 30 }} hari).<br>
-                                
-                                @if(isset($isMaxLateFee) && $isMaxLateFee)
-                                    <div class="mt-2 mb-1 p-2 bg-danger text-white rounded fw-bold">
-                                        <i class="fas fa-ban me-1"></i> Denda mencapai batas maksimal (100% Harga Buku)!
+                        @foreach($returnItems as $item)
+                            @php 
+                                $tx = $item['transaction']; 
+                                $days = $item['daysBorrowed'];
+                                $fee = $item['lateFee'];
+                            @endphp
+                            <input type="hidden" name="transaction_ids[]" value="{{ $tx->id }}">
+
+                            <div class="border rounded-4 p-3 mb-3 bg-light shadow-sm">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <span class="badge bg-secondary font-monospace mb-1">{{ $tx->bookCopy->copy_code }}</span>
+                                        <h6 class="fw-bold mb-0 text-dark">{{ $tx->bookCopy->book->title }}</h6>
+                                        <small class="text-muted">Dipinjam {{ \Carbon\Carbon::parse($tx->borrow_date)->format('d M Y') }} • {{ $days }} Hari</small>
                                     </div>
-                                    <span class="text-dark d-block">Admin harap tegur member secara lisan atau hubungi kontak terdaftar.</span>
+                                    <div>
+                                        @if($days > 30)
+                                            <span class="badge bg-danger">Telat (Denda: Rp {{ number_format($fee, 0, ',', '.') }})</span>
+                                        @else
+                                            <span class="badge bg-success">Tidak terlambat</span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <div class="mt-2">
+                                    <label class="form-label fw-bold small text-secondary">Kondisi buku:</label>
+                                    <select name="conditions[{{ $tx->id }}]" class="form-select form-select-sm border-primary" required>
+                                        <option value="available" selected>Bagus / layak dipinjamkan lagi</option>
+                                        <option value="damaged">Rusak (denda 100% harga buku)</option>
+                                        <option value="lost">Hilang (denda 100% harga buku)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        @endforeach
+
+                    {{-- JIKA PENGEMBALIAN SATUAN (SINGLE) --}}
+                    @elseif(isset($transaction))
+                        <input type="hidden" name="transaction_id" value="{{ $transaction->id }}">
+                        
+                        <div class="alert alert-info py-2 mb-3">
+                            Peminjam: <strong>{{ $transaction->user->name }}</strong> ({{ $transaction->user->member_code }})
+                        </div>
+
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="me-3" style="width: 60px; height: 80px; flex-shrink: 0;">
+                                @if($transaction->bookCopy->book->cover_image)
+                                    <img src="{{ asset('storage/' . $transaction->bookCopy->book->cover_image) }}" alt="Cover" class="w-100 h-100 object-fit-cover rounded shadow-sm">
+                                @else
+                                    <div class="bg-secondary text-white w-100 h-100 d-flex align-items-center justify-content-center rounded small">No Cover</div>
                                 @endif
-                                
-                                <span class="d-block mt-2">Estimasi Denda: <strong class="text-danger fs-5">Rp {{ number_format($lateFee, 0, ',', '.') }}</strong></span>
+                            </div>
+                            <div>
+                                <span class="badge bg-secondary mb-1 font-monospace">{{ $transaction->bookCopy->copy_code }}</span>
+                                <h5 class="fw-bold text-dark mb-1">{{ $transaction->bookCopy->book->title }}</h5>
+                                <small class="text-muted">Durasi Pinjam: <strong>{{ $daysBorrowed }} Hari</strong></small>
+                            </div>
+                        </div>
+
+                        @if($daysBorrowed > 30)
+                            <div class="alert alert-danger p-2 small">
+                                <i class="fas fa-exclamation-triangle me-1"></i> Terlambat! Estimasi Denda Keterlambatan: <strong>Rp {{ number_format($lateFee, 0, ',', '.') }}</strong>
                             </div>
                         @else
-                            <div class="alert alert-success mt-3 mb-0 p-2 small">
-                                <i class="fas fa-check-circle me-1"></i> Peminjaman tepat waktu (Batas maksimal 30 hari). <strong>Tanpa Denda.</strong>
+                            <div class="alert alert-success p-2 small">
+                                <i class="fas fa-check-circle me-1"></i> Tepat waktu. Tanpa denda.
                             </div>
                         @endif
-                    </div>
 
-                    <!-- Pengecekan Kondisi Fisik oleh Admin -->
-                    <div class="mb-3 text-start">
-                        <label class="fw-bold mb-2">Kondisi Fisik Buku Saat Diterima:</label>
-                        <select name="condition" id="conditionSelect" class="form-select border-primary" required>
-                            <option value="available" selected>✅ Bagus / Layak Dipinjamkan Lagi</option>
-                            <option value="damaged">⚠️ Lecek / Rusak / Cacat (Denda 100% dari Harga Buku)</option>
-                            <option value="lost">❌ Hilang / Tidak Dikembalikan Penuh</option>
-                        </select>
-                        <small class="text-muted d-block mt-1">Pilih "Rusak" atau "Hilang" agar buku tidak bisa dipinjam oleh member lain.</small>
-
-                        <!-- Notifikasi Dinamis Kondisi Rusak (Sembunyi by Default) -->
-                        <div id="damagedWarning" class="alert alert-warning mt-2 mb-0 p-2 small d-none border-warning border-start border-4 shadow-sm">
-                            <i class="fas fa-exclamation-circle me-1"></i> <strong>Denda Kerusakan Fisik:</strong><br> 
-                            Member akan dikenakan denda tambahan sebesar <strong>100% dari harga buku</strong> (Rp {{ number_format($transaction->bookCopy->book->price ?? 0, 0, ',', '.') }}).
+                        <div class="mb-3">
+                            <label class="fw-bold mb-2 small">Kondisi Fisik Buku:</label>
+                            <select name="condition" class="form-select border-primary" required>
+                                <option value="available" selected>Bagus / layak dipinjamkan lagi</option>
+                                <option value="damaged">Rusak (denda 100% harga buku)</option>
+                                <option value="lost">Hilang (denda 100% harga buku)</option>
+                            </select>
                         </div>
+                    @endif
 
-                        <!-- Notifikasi Dinamis Kondisi Hilang (Sembunyi by Default) -->
-                        <div id="lostInfo" class="alert alert-danger mt-2 mb-0 p-2 small d-none border-danger border-start border-4 shadow-sm">
-                            <i class="fas fa-user-slash me-1"></i> <strong>Buku Dinyatakan Hilang!</strong><br> 
-                            Tagihan Denda 100% (Rp {{ number_format($transaction->bookCopy->book->price ?? 0, 0, ',', '.') }}).
-                            <hr class="my-1 border-danger opacity-25">
-                            <div class="bg-white p-2 rounded text-dark">
-                                <strong><i class="fas fa-address-card text-secondary me-1"></i> Hubungi Member:</strong><br>
-                                👤 Nama: {{ $transaction->user->name }}<br>
-                                📞 Telp/WA: {{ $transaction->user->phone ?? 'Tidak ada data telp' }}<br>
-                                🏠 Alamat: {{ $transaction->user->address ?? 'Tidak ada data alamat' }}
-                            </div>
-                        </div>
-                    </div>
                 </div>
+
                 <div class="modal-footer bg-light px-4 py-3">
-                    <a href="{{ route('transactions.return') }}" class="btn btn-outline-secondary">Batal</a>
-                    <button type="submit" class="btn btn-success px-4 fw-bold"><i class="fas fa-check me-1"></i> Konfirmasi & Selesaikan Pengembalian</button>
+                    <a href="{{ route('transactions.return') }}" class="btn btn-secondary">Batal</a>
+                    <button type="submit" class="btn btn-success fw-bold px-4">Konfirmasi & Selesaikan Pengembalian</button>
                 </div>
             </form>
         </div>
@@ -137,52 +162,36 @@
 @push('scripts')
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
-    let html5QrcodeScanner;
-
     function onScanSuccess(decodedText, decodedResult) {
-        if (decodedText.startsWith('BK-')) {
-            // 1. Masukkan kode eksemplar ke dalam input text
-            document.getElementById('copy_code').value = decodedText;
-            
-            // 2. Matikan kamera scanner agar bersih
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.clear().catch(error => {
-                    console.error("Gagal menghentikan scanner.", error);
-                });
-            }
-
-            // 3. Beritahu admin dengan suara/alert singkat
-            alert("QR Code terbaca: " + decodedText + "\nKlik OK untuk melanjutkan verifikasi.");
+        let text = decodedText.trim();
+        document.getElementById('copy_code').value = text;
+        
+        if (window.html5QrCode && window.html5QrCode.isScanning) {
+            window.html5QrCode.stop().then(() => {
+                document.getElementById('returnForm').submit();
+            }).catch(err => {
+                document.getElementById('returnForm').submit();
+            });
+        } else {
             document.getElementById('returnForm').submit();
         }
     }
 
-    // Inisialisasi Scanner
-    html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
-    html5QrcodeScanner.render(onScanSuccess);
+    function onScanFailure(error) {
+        // Abaikan error frame kosong
+    }
 
-    // ==========================================
-    // JS UNTUK MENAMPILKAN PERINGATAN KONDISI BUKU
-    // ==========================================
-    document.addEventListener('DOMContentLoaded', function() {
-        const conditionSelect = document.getElementById('conditionSelect');
-        const damagedWarning = document.getElementById('damagedWarning');
-        const lostInfo = document.getElementById('lostInfo');
-
-        if (conditionSelect) {
-            conditionSelect.addEventListener('change', function() {
-                // Sembunyikan notifikasi setiap ada perubahan opsi
-                damagedWarning.classList.add('d-none');
-                lostInfo.classList.add('d-none');
-
-                // Tampilkan notifikasi yang sesuai
-                if (this.value === 'damaged') {
-                    damagedWarning.classList.remove('d-none');
-                } else if (this.value === 'lost') {
-                    lostInfo.classList.remove('d-none');
-                }
-            });
-        }
+    document.addEventListener("DOMContentLoaded", function () {
+        window.html5QrCode = new Html5QrcodeScanner(
+            "reader", 
+            { 
+                fps: 15, 
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            }, 
+            false
+        );
+        window.html5QrCode.render(onScanSuccess, onScanFailure);
     });
 </script>
 @endpush

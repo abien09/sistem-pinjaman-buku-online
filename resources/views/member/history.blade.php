@@ -24,6 +24,19 @@
     @endforeach
 @endisset
 
+<div class="card border-0 shadow-sm rounded-4 mb-4 bg-success bg-opacity-10">
+    <div class="card-body p-4 d-flex flex-column flex-md-row justify-content-between align-items-center">
+        <div>
+            <span class="badge bg-success mb-2">Pengembalian Sekaligus</span>
+            <h5 class="fw-bold mb-1">Kembalikan Seluruh Buku Aktif</h5>
+            <p class="text-muted small mb-0">Tunjukkan satu QR ini kepada Admin untuk memproses semua buku aktif sekaligus.</p>
+        </div>
+        <div class="bg-white p-3 rounded-4 shadow-sm mt-3 mt-md-0 text-center">
+            {!! SimpleSoftwareIO\QrCode\Facades\QrCode::size(120)->generate('RETURN:' . Auth::user()->member_code) !!}
+        </div>
+    </div>
+</div
+
 <!-- TABEL RIWAYAT -->
 <div class="card shadow-sm border-0 rounded-4 mb-4">
     <div class="card-body p-0">

@@ -1,0 +1,7 @@
+$copy = \App\Models\BookCopy::where('copy_code', 'BK-28-C2-2KPG')->first();
+$transaction = \App\Models\Transaction::where('book_copy_id', $copy->id)->where('status', 'borrowed')->first();
+
+$transaction->update([
+    'borrow_date' => now()->subDays(60),
+    'due_date' => now()->subDays(30)
+]);

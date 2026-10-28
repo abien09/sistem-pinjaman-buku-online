@@ -10,13 +10,22 @@
     </div>
 
     <div class="row">
-        <!-- Kolom Kiri: Biodata Lengkap -->
+        <!-- Kolom Kiri: Biodata Lengkap & Foto Face Recognition -->
         <div class="col-md-4 mb-4">
             <div class="card shadow-sm border-0 rounded-4 h-100">
                 <div class="card-body text-center p-4">
-                    <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-                        <i class="fas fa-user fa-2x"></i>
+                    
+                    <!-- Foto Cuplikan Face Recognition -->
+                    <div class="mb-3 d-flex justify-content-center">
+                        @if(!empty($member->face_image_path) && file_exists(public_path('storage/' . $member->face_image_path)))
+                            <img src="{{ asset('storage/' . $member->face_image_path) }}" alt="Face Recognition Photo" class="rounded-circle shadow-sm object-fit-cover border border-3 border-primary" style="width: 100px; height: 100px;">
+                        @else
+                            <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center border border-3 border-primary shadow-sm" style="width: 100px; height: 100px;">
+                                <i class="fas fa-user fa-3x"></i>
+                            </div>
+                        @endif
                     </div>
+
                     <h4 class="fw-bold mb-1">{{ $member->name }}</h4>
                     <span class="badge bg-secondary font-monospace mb-3">{{ $member->member_code ?? 'Tanpa ID' }}</span>
                     
@@ -27,7 +36,7 @@
                         <p class="mb-2"><strong><i class="fas fa-id-card text-muted me-2"></i> NIK:</strong> {{ $member->nik ?? '-' }}</p>
                         <p class="mb-2"><strong><i class="fas fa-phone text-muted me-2"></i> No. Telp / WA:</strong> {{ $member->phone ?? '-' }}</p>
                         <p class="mb-2"><strong><i class="fas fa-calendar-alt text-muted me-2"></i> Tanggal Lahir:</strong> {{ $member->birth_date ? \Carbon\Carbon::parse($member->birth_date)->format('d M Y') : '-' }}</p>
-                        <p class="mb-2"><strong><i class="fas fa-birthday-cake text-muted me-2"></i> Umur:</strong> {{ $age ? $age . ' Tahun' : '-' }}</p>
+                        <p class="mb-2"><strong><i class="fas fa-birthday-cake text-muted me-2"></i> Umur:</strong> {{ isset($age) && $age ? $age . ' Tahun' : '-' }}</p>
                         <p class="mb-0"><strong><i class="fas fa-map-marker-alt text-muted me-2"></i> Alamat Lengkap:</strong> <br><span class="text-muted">{{ $member->address ?? '-' }}</span></p>
                     </div>
                 </div>

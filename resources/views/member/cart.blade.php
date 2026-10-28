@@ -4,6 +4,13 @@
 <div class="container py-4">
     <h3 class="fw-bold mb-4"><i class="fas fa-shopping-cart text-primary me-2"></i> Keranjang Peminjaman</h3>
 
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show shadow-sm rounded-4 mb-4" role="alert">
+            <i class="fas fa-check-circle me-1"></i> {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
     @if(session('booking_code'))
         <div class="alert alert-success text-center shadow-sm rounded-4 mb-4 p-4 border-2 border-success">
             <h4 class="fw-bold text-success"><i class="fas fa-check-circle"></i> {{ session('booking_success') }}</h4>
@@ -24,6 +31,7 @@
                             <tr>
                                 <th scope="col" colspan="2">Detail Buku</th>
                                 <th scope="col">Penulis</th>
+                                <th scope="col" class="text-center">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -43,6 +51,16 @@
                                     <span class="badge bg-primary bg-opacity-10 text-primary">{{ $cart->book->category->name ?? 'Umum' }}</span>
                                 </td>
                                 <td class="text-muted">{{ $cart->book->author }}</td>
+                                <td class="text-center">
+                                    <!-- Tombol Batal / Hapus Buku dari Keranjang -->
+                                    <form action="{{ route('member.cart.destroy', $cart->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin membatalkan dan menghapus buku ini dari keranjang?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                                            <i class="fas fa-trash-alt me-1"></i> Batal
+                                        </button>
+                                    </form>
+                                </td>
                             </tr>
                             @endforeach
                         </tbody>

@@ -34,13 +34,13 @@
                         </div>
                     @endif
                     
-                    <form action="{{ route('register.process') }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ route('register.process') }}" method="POST" enctype="multipart/form-data" id="registrationForm" novalidate>
                         @csrf
                         
                         <div class="row">
                             <!-- BAGIAN KIRI: Form Data Diri -->
                             <div class="col-md-6 border-end">
-                                <h5>1. Data Identitas</h5>
+                                <h5>Data Identitas</h5>
                                 <div class="mb-3">
                                     <label>Nama Lengkap</label>
                                     <input type="text" name="name" class="form-control" required>
@@ -60,8 +60,11 @@
                                 </div>
                                 <div class="row">
                                     <div class="col-6 mb-3">
-                                        <label>Nomor Induk Kependudukan (NIK)</label>
-                                        <input type="number" name="nik" class="form-control" required>
+                                        <label for="nik">Nomor Induk Kependudukan (NIK)</label>
+                                        <input type="text" name="nik" id="nik" class="form-control" inputmode="numeric" maxlength="16" required>
+                                        <div class="invalid-feedback">
+                                            NIK harus terdiri dari tepat 16 digit angka.
+                                        </div>
                                     </div>
                                     <div class="col-6 mb-3">
                                         <label>Tanggal Lahir</label>
@@ -73,8 +76,12 @@
                                     <textarea name="address" class="form-control" rows="2" required></textarea>
                                 </div>
                                 <div class="mb-3">
-                                    <label>No. HP / WhatsApp</label>
-                                    <input type="text" name="phone" class="form-control" required>
+                                    <label for="phone" class="form-label">No. HP / WhatsApp</label>
+                                    <input type="tel" name="phone" id="phone" class="form-control" value="{{ old('phone') }}" placeholder="Contoh: 081234567890" inputmode="tel" maxlength="15" required>
+                                    <div class="invalid-feedback">
+                                        Nomor HP harus berisi 10–15 digit angka. Boleh diawali tanda +.
+                                    </div>
+                                    <div class="form-text">Masukkan nomor HP yang aktif dan dapat dihubungi.</div>
                                 </div>
                                 <div class="mb-3">
                                     <label>Upload Foto KTP</label>
@@ -111,7 +118,7 @@
     </div>
 </div>
 
-<!-- Script Face API & Toggle Password -->
+<!-- Script Face API, Validasi Input & Toggle Password -->
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 <script>
     // Script Toggle Show/Hide Password Register
@@ -126,6 +133,54 @@
         registerEyeIcon.classList.toggle('fa-eye-slash');
     });
 
+    // Validasi No HP dan NIK
+    const registrationForm = document.getElementById('registrationForm');
+    const phoneInput = document.getElementById('phone');
+    const nikInput = document.getElementById('nik');
+
+    function validatePhone() {
+        const phone = phoneInput.value.trim();
+        const valid = /^\+?[0-9]{10,15}$/.test(phone);
+
+        phoneInput.classList.toggle('is-invalid', !valid);
+        phoneInput.classList.toggle('is-valid', valid);
+        phoneInput.setCustomValidity(valid ? '' : 'Nomor HP harus berisi 10–15 digit angka.');
+        return valid;
+    }
+
+    function validateNik() {
+        const nik = nikInput.value.trim();
+        const valid = /^[0-9]{16}$/.test(nik);
+
+        nikInput.classList.toggle('is-invalid', !valid);
+        nikInput.classList.toggle('is-valid', valid);
+        nikInput.setCustomValidity(valid ? '' : 'NIK harus terdiri dari tepat 16 digit angka.');
+        return valid;
+    }
+
+    phoneInput.addEventListener('input', validatePhone);
+    phoneInput.addEventListener('blur', validatePhone);
+
+    nikInput.addEventListener('input', validateNik);
+    nikInput.addEventListener('blur', validateNik);
+
+    registrationForm.addEventListener('submit', function (event) {
+        const phoneValid = validatePhone();
+        const nikValid = validateNik();
+
+        if (!phoneValid || !nikValid) {
+            event.preventDefault();
+            if (!phoneValid) {
+                phoneInput.reportValidity();
+                phoneInput.focus();
+            } else {
+                nikInput.reportValidity();
+                nikInput.focus();
+            }
+        }
+    });
+
+    // Script Face API
     const video = document.getElementById('video');
     const captureBtn = document.getElementById('captureBtn');
     const submitBtn = document.getElementById('submitBtn');

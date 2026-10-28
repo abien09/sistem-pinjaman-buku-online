@@ -26,8 +26,8 @@
 <div class="card shadow-sm border-0 rounded-4 mb-4">
     <div class="card-body p-4">
         <div class="row">
-            <div class="col-md-3 text-center mb-3 mb-md-0">
-                <div class="bg-light rounded-4 overflow-hidden shadow-sm" style="height: 340px;">
+            <div class="col-md-3 text-center mb-3 mb-md-0 position-relative">
+                <div class="bg-light rounded-4 overflow-hidden shadow-sm position-relative" style="height: 340px;">
                     @if($book->cover_image)
                         <img src="{{ asset('storage/' . $book->cover_image) }}" alt="Cover" class="w-100 h-100 object-fit-cover">
                     @else
@@ -36,6 +36,15 @@
                         </div>
                     @endif
                 </div>
+                
+                {{-- Badge Kategori Langka / Premium di Cover --}}
+                @if($book->is_rare || $book->price > 1000000)
+                    <div class="position-absolute top-0 start-0 m-3">
+                        <span class="badge bg-warning text-dark fw-bold px-2 py-1 shadow-sm" style="font-size: 10px;">
+                            <i class="fas fa-star me-1"></i> BUKU LANGKA / PREMIUM
+                        </span>
+                    </div>
+                @endif
             </div>
 
             <div class="col-md-9 d-flex flex-column justify-content-between">
@@ -56,27 +65,39 @@
                 </div>
 
                 <div class="mt-4">
-                    <div class="pt-3 border-top bg-light p-3 rounded-4 mb-3">
-                        <h6 class="fw-bold text-dark mb-2"><i class="fas fa-info-circle text-primary me-2"></i> Ketentuan & Informasi Peminjaman:</h6>
-                        <div class="row text-muted small">
-                            <div class="col-md-6 mb-1">
-                                <i class="fas fa-clock text-warning me-1"></i> Batas maksimal peminjaman: <strong>30 hari</strong>
-                            </div>
-                            <div class="col-md-6 mb-1">
-                                <i class="fas fa-exclamation-triangle text-danger me-1"></i> Denda keterlambatan: <strong>10% harga buku/minggu</strong>
+                    {{-- KONDISIONAL KETENTUAN PEMINJAMAN / CATATAN KHUSUS --}}
+                    @if($book->isReadOnly())
+                        <div class="pt-3 border-top bg-warning bg-opacity-10 p-3 rounded-4 mb-3">
+                            <h6 class="fw-bold text-dark mb-1"><i class="fas fa-ban text-danger me-2"></i> Catatan Peminjaman:</h6>
+                            <p class="text-danger small mb-1 fw-semibold">Buku ini tidak bisa dipinjam karena berstatus Read-Only (Langka/Eksklusif).</p>
+                            <div class="text-dark small fw-bold mt-2">
+                                <i class="fas fa-book-reader text-secondary me-1"></i> Stok buku yang bisa dibaca di perpus offline: 
+                                <span class="badge bg-secondary text-white px-2 py-1 fs-6 ms-1">{{ $book->copies->where('status', 'available')->count() }} Eksemplar Tersedia</span>
                             </div>
                         </div>
-                    </div>
+                    @else
+                        <div class="pt-3 border-top bg-light p-3 rounded-4 mb-3">
+                            <h6 class="fw-bold text-dark mb-2"><i class="fas fa-info-circle text-primary me-2"></i> Ketentuan & Informasi Peminjaman:</h6>
+                            <div class="row text-muted small">
+                                <div class="col-md-6 mb-1">
+                                    <i class="fas fa-clock text-warning me-1"></i> Batas maksimal peminjaman: <strong>30 hari</strong>
+                                </div>
+                                <div class="col-md-6 mb-1">
+                                    <i class="fas fa-exclamation-triangle text-danger me-1"></i> Denda keterlambatan: <strong>10% harga buku/minggu</strong>
+                                </div>
+                            </div>
+                        </div>
 
-                    @if(!$book->isReadOnly() && !$isClosed)
-                        @if($book->available_copies_count > 0)
-                            <button type="button" class="btn btn-primary w-100 py-3 fw-bold rounded-4 shadow-sm" onclick="addToCart({{ $book->id }}, this)">
-                                <i class="fas fa-cart-plus me-2"></i> Tambah ke Keranjang Sekarang
-                            </button>
-                        @else
-                            <button type="button" class="btn btn-secondary w-100 py-3 fw-bold rounded-4 shadow-sm" disabled>
-                                <i class="fas fa-times-circle me-2"></i> Buku Sedang Habis Dipinjam
-                            </button>
+                        @if(!$isClosed)
+                            @if($book->available_copies_count > 0)
+                                <button type="button" class="btn btn-primary w-100 py-3 fw-bold rounded-4 shadow-sm" onclick="addToCart({{ $book->id }}, this)">
+                                    <i class="fas fa-cart-plus me-2"></i> Tambah ke Keranjang Sekarang
+                                </button>
+                            @else
+                                <button type="button" class="btn btn-secondary w-100 py-3 fw-bold rounded-4 shadow-sm" disabled>
+                                    <i class="fas fa-times-circle me-2"></i> Buku Sedang Habis Dipinjam
+                                </button>
+                            @endif
                         @endif
                     @endif
                 </div>

@@ -57,7 +57,17 @@
     <div class="row">
         @forelse($books as $book)
             <div class="col-md-3 mb-4">
-                <div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden position-relative">
+                    
+                    {{-- Label Badge Khusus Buku Langka/Premium di atas Cover --}}
+                    @if($book->is_rare || $book->price > 1000000)
+                        <div class="position-absolute top-0 start-0 z-2 m-2">
+                            <span class="badge bg-warning text-dark fw-bold px-2 py-1 shadow-sm" style="font-size: 9px;">
+                                <i class="fas fa-star me-1"></i> BUKU LANGKA / PREMIUM
+                            </span>
+                        </div>
+                    @endif
+
                     <div class="bg-light text-center position-relative" style="height: 220px; overflow: hidden;">
                         @if($book->cover_image)
                             <img src="{{ asset('storage/' . $book->cover_image) }}" alt="{{ $book->title }}" class="w-100 h-100 object-fit-cover">
@@ -67,7 +77,7 @@
                             </div>
                         @endif
                         
-                        <span class="position-absolute top-0 start-0 m-2 badge bg-dark bg-opacity-75 backdrop-blur">
+                        <span class="position-absolute bottom-0 start-0 m-2 badge bg-dark bg-opacity-75 backdrop-blur">
                             {{ $book->category->name }}
                         </span>
                     </div>
@@ -82,26 +92,39 @@
                         
                         <div class="mt-auto">
                             <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-                                <span class="small text-muted">Stok Fisik:</span>
-                                @if($book->available_copies_count > 0)
-                                    <span class="badge bg-success bg-opacity-10 text-success fw-bold px-2 py-1">
-                                        {{ $book->available_copies_count }} Tersedia
+                                
+                                {{-- KONDISIONAL TAMPILAN JIKA BUKU READ-ONLY / LANGKA --}}
+                                @if($book->isReadOnly())
+                                    <span class="badge bg-warning text-dark fw-bold px-2 py-1 shadow-sm" style="font-size: 11px;">
+                                        HANYA BACA DI TEMPAT
                                     </span>
-                                @else
-                                    <span class="badge bg-danger bg-opacity-10 text-danger fw-bold px-2 py-1">
-                                        Habis
-                                    </span>
-                                @endif
 
-                                @if($book->is_rare || $book->price > 1000000)
-                                    <button type="button" class="btn btn-secondary btn-sm px-3 position-relative" style="z-index: 2;" disabled title="Buku Premium/Langka">
+                                    <button type="button" class="btn btn-secondary btn-sm px-3 position-relative" style="z-index: 2;" disabled title="Buku Hanya Bisa Dibaca di Tempat">
                                         <i class="fas fa-book-reader"></i>
                                     </button>
                                 @else
+                                    <span class="small text-muted">Stok Fisik:</span>
+                                    @if($book->available_copies_count > 0)
+                                        <span id="stock-{{ $book->id }}"
+                                              class="badge {{ $book->available_copies_count > 0 ? 'bg-success' : 'bg-danger' }}">
+                                            {{ $book->available_copies_count > 0
+                                                ? $book->available_copies_count . ' Tersedia'
+                                                : 'Stok Habis' }}
+                                        </span>
+                                    @else
+                                    <span
+                                        id="stock-{{ $book->id }}"
+                                        class="badge bg-danger bg-opacity-10 text-danger fw-bold px-2 py-1"
+                                    >
+                                        Habis
+                                    </span>
+                                    @endif
+
                                     <button type="button" class="btn btn-outline-primary btn-sm px-3 position-relative" style="z-index: 2;" onclick="addToCart({{ $book->id }}, this)" title="Tambah ke Keranjang">
                                         <i class="fas fa-cart-plus"></i>
                                     </button>
                                 @endif
+
                             </div>
                         </div>
                     </div>
@@ -117,3 +140,109 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    function addToCart(bookId, btn) {
+        const originalHtml = btn.innerHTML;
+        const originalClasses = btn.className;
+
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        fetch('{{ route("member.cart.add") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                book_id: bookId
+            })
+        })
+        .then(async response => {
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || data.message || 'Gagal menambahkan buku.'
+                );
+            }
+
+            return data;
+        })
+        .then(data => {
+            if (data.success) {
+                // UPDATE STOK BUKU LANGSUNG BERKURANG TANPA REFRESH
+                const stockElement = document.getElementById('stock-' + bookId);
+
+                if (stockElement && data.new_stock !== undefined) {
+                    const newStock = parseInt(data.new_stock);
+
+                    stockElement.textContent = newStock > 0 
+                        ? newStock + ' Tersedia' 
+                        : 'Stok Habis';
+
+                    stockElement.className = newStock > 0 
+                        ? 'badge bg-success' 
+                        : 'badge bg-danger';
+                }
+
+                // Tampilkan ikon centang sementara
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                btn.classList.remove('btn-outline-primary', 'btn-primary');
+                btn.classList.add('btn-success');
+
+                // Update badge jumlah keranjang di sidebar
+                const badge = document.getElementById('cart-badge');
+                if (badge) {
+                    const currentCount = parseInt(badge.innerText) || 0;
+                    badge.innerText = currentCount + 1;
+                }
+
+                // Notifikasi berhasil
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: data.message || 'Buku berhasil dimasukkan ke keranjang.',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    backdrop: 'rgba(0,0,0,0.4)'
+                });
+
+                // Kembalikan tombol seperti semula setelah 1.5 detik
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.className = originalClasses;
+                    
+                    // Jika stok habis setelah ditambahkan, nonaktifkan tombol
+                    if (data.new_stock !== undefined && parseInt(data.new_stock) <= 0) {
+                        btn.disabled = true;
+                    } else {
+                        btn.disabled = false;
+                    }
+                }, 1500);
+            } else {
+                throw new Error(data.error || 'Buku gagal ditambahkan.');
+            }
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal!',
+                text: error.message || 'Terjadi kesalahan sistem.',
+                confirmButtonColor: '#0d6efd'
+            });
+
+            // Pulihkan tombol jika terjadi kesalahan
+            btn.innerHTML = originalHtml;
+            btn.className = originalClasses;
+            btn.disabled = false;
+            
+            console.error('Kesalahan addToCart:', error);
+        });
+    }
+</script>
+@endpush
